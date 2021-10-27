@@ -1,0 +1,11 @@
+.task-list {
+    border: 1px solid black;
+    border-radius: 8px;
+    padding: 16px 32px;
+}
+
+.task-list .tasks {
+    display: flex;
+    flex-flow: column nowrap;
+    gap: 8px;
+}

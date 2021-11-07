@@ -23,10 +23,10 @@ type alias Model =
 init : Model
 init =
     { items =
-        [ "hello"
-        , "how are you"
-        , "i am well"
-        , "thanks"
+        [ "Brush teeth"
+        , "Comb hair"
+        , "Take a shower"
+        , "Eat a grape"
         ]
     }
 
@@ -58,13 +58,17 @@ update msg model =
 -- View
 
 
-renderItem : Int -> String -> Html Msg
-renderItem index item =
-    li [] [ input [ placeholder "Task", value item, onInput (Update index) ] [] ]
-
-
 view : Model -> Html Msg
 view model =
+    let
+        renderItem index item =
+            li []
+                [ div []
+                    [ input [ placeholder "Task", value item, onInput (Update index) ] []
+                    , button [ onClick (Remove index) ] [ text "Delete" ]
+                    ]
+                ]
+    in
     div []
         [ h2 []
             [ text "Hello!" ]

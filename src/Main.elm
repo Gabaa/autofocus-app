@@ -1,10 +1,10 @@
 module Main exposing (main)
 
+import Array exposing (Array)
 import Browser
 import Html exposing (Html, button, div, h2, input, li, text, ul)
-import Html.Attributes exposing (placeholder, value)
-import Html.Events exposing (onClick, onInput)
-import List exposing (drop, indexedMap, take)
+import Html.Attributes exposing (checked, disabled, placeholder, type_, value)
+import Html.Events exposing (onCheck, onClick, onInput)
 
 
 main : Program () Model Msg
@@ -16,18 +16,28 @@ main =
 -- Model
 
 
+type alias Task =
+    { done : Bool, name : String }
+
+
+newTask : String -> Task
+newTask name =
+    { name = name, done = False }
+
+
 type alias Model =
-    { items : List String }
+    { items : Array Task }
 
 
 init : Model
 init =
     { items =
-        [ "Brush teeth"
-        , "Comb hair"
-        , "Take a shower"
-        , "Eat a grape"
-        ]
+        Array.fromList
+            [ newTask "Brush teeth"
+            , newTask "Comb hair"
+            , newTask "Take a shower"
+            , newTask "Eat a grape"
+            ]
     }
 
 
@@ -39,19 +49,33 @@ type Msg
     = Update Int String
     | Remove Int
     | Add
+    | TaskUpdateDone Int Bool
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
-        Update index item ->
-            { model | items = take index model.items ++ (item :: drop (index + 1) model.items) }
+        Update i item ->
+            case Array.get i model.items of
+                Just task ->
+                    { model | items = Array.set i { task | name = item } model.items }
+
+                Nothing ->
+                    model
 
         Remove i ->
-            { model | items = take i model.items ++ drop (i + 1) model.items }
+            { model | items = Array.append (Array.slice 0 i model.items) (Array.slice (i + 1) (Array.length model.items) model.items) }
 
         Add ->
-            { model | items = model.items ++ [ "" ] }
+            { model | items = Array.push (newTask "") model.items }
+
+        TaskUpdateDone i done ->
+            case Array.get i model.items of
+                Just task ->
+                    { model | items = Array.set i { task | done = done } model.items }
+
+                Nothing ->
+                    model
 
 
 
@@ -64,8 +88,9 @@ view model =
         renderItem index item =
             li []
                 [ div []
-                    [ input [ placeholder "Task", value item, onInput (Update index) ] []
-                    , button [ onClick (Remove index) ] [ text "Delete" ]
+                    [ input [ type_ "checkbox", checked item.done, onCheck (TaskUpdateDone index) ] []
+                    , input [ placeholder "Task", value item.name, disabled item.done, onInput (Update index) ] []
+                    , button [ onClick (Remove index) ] [ text "X" ]
                     ]
                 ]
     in
@@ -75,10 +100,11 @@ view model =
         , div
             []
             [ ul []
-                (indexedMap renderItem model.items
-                    ++ [ li []
-                            [ button [ onClick Add ] [ text "New" ] ]
-                       ]
+                (List.append
+                    (List.indexedMap renderItem (Array.toList model.items))
+                    [ li []
+                        [ button [ onClick Add ] [ text "New" ] ]
+                    ]
                 )
             ]
         ]

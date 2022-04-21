@@ -2,8 +2,8 @@ module Main exposing (main)
 
 import Array exposing (Array)
 import Browser
-import Html exposing (Html, button, div, h2, input, li, text, ul)
-import Html.Attributes exposing (checked, disabled, placeholder, type_, value)
+import Html exposing (Html, br, button, div, h2, input, label, li, text, ul)
+import Html.Attributes exposing (checked, disabled, for, id, placeholder, style, type_, value)
 import Html.Events exposing (onCheck, onClick, onInput)
 
 
@@ -17,7 +17,7 @@ main =
 
 
 type alias Task =
-    { done : Bool, name : String }
+    { name : String, done : Bool }
 
 
 newTask : String -> Task
@@ -26,18 +26,25 @@ newTask name =
 
 
 type alias Model =
-    { items : Array Task }
+    { pages : Array (Array Task)
+    , newTask : String
+    , currentPage : Int
+    }
 
 
 init : Model
 init =
-    { items =
+    { pages =
         Array.fromList
-            [ newTask "Brush teeth"
-            , newTask "Comb hair"
-            , newTask "Take a shower"
-            , newTask "Eat a grape"
+            [ Array.fromList
+                [ newTask "Brush teeth"
+                , newTask "Comb hair"
+                , newTask "Take a shower"
+                , newTask "Eat a grape"
+                ]
             ]
+    , newTask = ""
+    , currentPage = 0
     }
 
 
@@ -46,59 +53,59 @@ init =
 
 
 type Msg
-    = Update Int String
-    | Remove Int
-    | Add
+    = Add String
     | TaskUpdateDone Int Bool
+    | UpdateNewTask String
 
 
 update : Msg -> Model -> Model
 update msg model =
     case msg of
-        Update i item ->
-            case Array.get i model.items of
-                Just task ->
-                    { model | items = Array.set i { task | name = item } model.items }
-
-                Nothing ->
-                    -- TODO: consider updating model to be Array (Maybe Task)
-                    --       so that we can write to objects at any index
-                    --       OR just enforce that you can only write to the
-                    --       index just after the last (then updating array
-                    --       is trivial). Last approach is probably better.
-                    model
-
-        Remove i ->
-            { model | items = removeArrayItem i model.items }
-
-        Add ->
-            { model | items = Array.push (newTask "") model.items }
-
-        TaskUpdateDone i done ->
-            case Array.get i model.items of
-                Just task ->
-                    { model | items = Array.set i { task | done = done } model.items }
+        Add name ->
+            case Array.get model.currentPage model.pages of
+                Just page ->
+                    -- TODO: Handle the array overflowing
+                    { model | pages = Array.set model.currentPage (Array.push (newTask name) page) model.pages }
 
                 Nothing ->
                     model
 
+        TaskUpdateDone index done ->
+            case Array.get index model.items of
+                Just task ->
+                    { model | items = Array.set index { task | done = done } model.items }
 
-removeArrayItem : Int -> Array a -> Array a
-removeArrayItem index items =
-    Array.append
-        (Array.slice 0 index items)
-        (Array.slice (index + 1) (Array.length items) items)
+                Nothing ->
+                    model
+
+        UpdateNewTask text ->
+            { model | newTask = text }
 
 
 
 -- View
 
 
+tasksPerPage : Int
+tasksPerPage =
+    5
+
+
 view : Model -> Html Msg
 view model =
-    div []
-        [ h2 []
-            [ text "Hello!" ]
+    div [ style "width" "600px", style "margin" "auto" ]
+        [ h2 [] [ text "Hello!" ]
+        , div []
+            [ button [ disabled True ] [ text "Prev" ]
+            , button [ disabled True ] [ text "Next" ]
+            ]
+        , br [] []
+        , div []
+            [ label [ for "new-task-field" ] [ text "New task:" ]
+            , br [] []
+            , input [ id "new-task-field", onInput UpdateNewTask ] []
+            , button [ onClick (Add model.newTask) ] [ text "Add" ]
+            ]
         , div
             []
             [ viewTaskList model ]
@@ -107,19 +114,41 @@ view model =
 
 viewTaskList : Model -> Html Msg
 viewTaskList model =
+    ul [] (List.range 0 (tasksPerPage - 1) |> List.map (viewTask model))
+
+
+viewTask : Model -> Int -> Html Msg
+viewTask model index =
     let
-        viewTask index =
-            let
-                task =
-                    Array.get index model.items |> Maybe.withDefault (newTask "")
-            in
-            li
-                []
-                [ div []
-                    [ input [ type_ "checkbox", checked task.done, onCheck (TaskUpdateDone index) ] []
-                    , input [ placeholder "Task", value task.name, disabled task.done, onInput (Update index) ] []
-                    , button [ onClick (Remove index) ] [ text "X" ]
-                    ]
-                ]
+        maybeTask =
+            Array.get index model.items
+
+        done =
+            case maybeTask of
+                Just task ->
+                    task.done
+
+                Nothing ->
+                    False
+
+        finishable =
+            maybeTask /= Nothing
     in
-    ul [] (List.range 0 25 |> List.map viewTask)
+    li
+        []
+        [ div []
+            [ input
+                [ type_ "checkbox"
+                , checked done
+                , disabled (not finishable)
+                , onCheck (TaskUpdateDone index)
+                ]
+                []
+            , Maybe.map viewTaskText maybeTask |> Maybe.withDefault (text "")
+            ]
+        ]
+
+
+viewTaskText : Task -> Html Msg
+viewTaskText task =
+    text task.name

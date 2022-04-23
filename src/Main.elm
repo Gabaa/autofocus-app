@@ -1,19 +1,41 @@
-module Main exposing (main)
+module Main exposing (main, viewTask)
 
 import Array exposing (Array)
 import Browser
-import Html exposing (Html, br, button, div, h2, input, label, li, text, ul)
-import Html.Attributes exposing (checked, disabled, for, id, placeholder, style, type_, value)
-import Html.Events exposing (onCheck, onClick, onInput)
+import Element exposing (..)
+import Element.Border as Border
+import Element.Font as Font
+import Element.Input as Input
 
 
-main : Program () Model Msg
+main : Program Flags Model Msg
 main =
-    Browser.sandbox { init = init, update = update, view = view }
+    Browser.document
+        { init = init
+        , subscriptions = subscriptions
+        , update = update
+        , view = view
+        }
+
+
+
+-- Flags
+
+
+type alias Flags =
+    {}
 
 
 
 -- Model
+
+
+type alias Model =
+    { tasks : Array Task
+    , currentPage : Int
+    , tasksPerPage : Int
+    , newTask : String
+    }
 
 
 type alias Task =
@@ -25,27 +47,30 @@ newTask name =
     { name = name, done = False }
 
 
-type alias Model =
-    { pages : Array (Array Task)
-    , newTask : String
-    , currentPage : Int
-    }
-
-
-init : Model
-init =
-    { pages =
-        Array.fromList
-            [ Array.fromList
+init : Flags -> ( Model, Cmd Msg )
+init _ =
+    ( { tasks =
+            Array.fromList
                 [ newTask "Brush teeth"
                 , newTask "Comb hair"
                 , newTask "Take a shower"
                 , newTask "Eat a grape"
                 ]
-            ]
-    , newTask = ""
-    , currentPage = 0
-    }
+      , currentPage = 0
+      , tasksPerPage = 10
+      , newTask = ""
+      }
+    , Cmd.none
+    )
+
+
+
+-- Subscriptions
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Sub.none
 
 
 
@@ -53,102 +78,186 @@ init =
 
 
 type Msg
-    = Add String
-    | TaskUpdateDone Int Bool
+    = AddTask
+    | SetTaskDone Int Bool
     | UpdateNewTask String
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    case msg of
-        Add name ->
-            case Array.get model.currentPage model.pages of
-                Just page ->
-                    -- TODO: Handle the array overflowing
-                    { model | pages = Array.set model.currentPage (Array.push (newTask name) page) model.pages }
+    let
+        newModel =
+            case msg of
+                AddTask ->
+                    { model | tasks = Array.push (newTask model.newTask) model.tasks, newTask = "" }
 
-                Nothing ->
-                    model
+                SetTaskDone index done ->
+                    case Array.get index model.tasks of
+                        Just task ->
+                            { model | tasks = Array.set index { task | done = done } model.tasks }
 
-        TaskUpdateDone index done ->
-            case Array.get index model.items of
-                Just task ->
-                    { model | items = Array.set index { task | done = done } model.items }
+                        Nothing ->
+                            model
 
-                Nothing ->
-                    model
-
-        UpdateNewTask text ->
-            { model | newTask = text }
+                UpdateNewTask text ->
+                    { model | newTask = text }
+    in
+    ( newModel, Cmd.none )
 
 
 
 -- View
+{-
+   tasksPerPage : Int
+   tasksPerPage =
+       5
 
 
-tasksPerPage : Int
-tasksPerPage =
-    5
+   view : Model -> Html Msg
+   view model =
+       div [ style "width" "600px", style "margin" "auto" ]
+           [ h2 [] [ text "Hello!" ]
+           , div []
+               [ button [ disabled True ] [ text "Prev" ]
+               , button [ disabled True ] [ text "Next" ]
+               ]
+           , br [] []
+           , div []
+               [ label [ for "new-task-field" ] [ text "New task:" ]
+               , br [] []
+               , input [ id "new-task-field", onInput UpdateNewTask ] []
+               , button [ onClick (Add model.newTask) ] [ text "Add" ]
+               ]
+           , div
+               []
+               [ viewTaskList model ]
+           ]
 
 
-view : Model -> Html Msg
+   viewTaskList : Model -> Html Msg
+   viewTaskList model =
+       ul [] (List.range 0 (tasksPerPage - 1) |> List.map (viewTask model))
+
+
+   viewTask : Model -> Int -> Html Msg
+   viewTask model index =
+       let
+           maybeTask =
+               Array.get index model.items
+
+           done =
+               case maybeTask of
+                   Just task ->
+                       task.done
+
+                   Nothing ->
+                       False
+
+           finishable =
+               maybeTask /= Nothing
+       in
+       li
+           []
+           [ div []
+               [ input
+                   [ type_ "checkbox"
+                   , checked done
+                   , disabled (not finishable)
+                   , onCheck (TaskUpdateDone index)
+                   ]
+                   []
+               , Maybe.map viewTaskText maybeTask |> Maybe.withDefault (text "")
+               ]
+           ]
+
+
+   viewTaskText : Task -> Html Msg
+   viewTaskText task =
+       text task.name
+
+-}
+
+
+view : Model -> Browser.Document Msg
 view model =
-    div [ style "width" "600px", style "margin" "auto" ]
-        [ h2 [] [ text "Hello!" ]
-        , div []
-            [ button [ disabled True ] [ text "Prev" ]
-            , button [ disabled True ] [ text "Next" ]
-            ]
-        , br [] []
-        , div []
-            [ label [ for "new-task-field" ] [ text "New task:" ]
-            , br [] []
-            , input [ id "new-task-field", onInput UpdateNewTask ] []
-            , button [ onClick (Add model.newTask) ] [ text "Add" ]
-            ]
-        , div
-            []
-            [ viewTaskList model ]
+    { title = "Autofocus"
+    , body =
+        [ layout []
+            (row [ width fill ]
+                [ column [ width (fillPortion 1) ] []
+                , column [ padding 32, width (fillPortion 2), spacing 32 ]
+                    [ el [ centerX, Font.size 32 ] (text "Autofocus App")
+                    , row [ width fill, spaceEvenly ]
+                        [ pageButton "Prev"
+                        , row [ width (px 400), spacing 16 ]
+                            [ Input.text []
+                                { onChange = UpdateNewTask
+                                , text = model.newTask
+                                , placeholder = Just (Input.placeholder [] (text "New task"))
+                                , label = Input.labelHidden "New task"
+                                }
+                            , customButton
+                                { label = text "Add"
+                                , onPress = Just AddTask
+                                }
+                            ]
+                        , pageButton "Next"
+                        ]
+                    , row [] [ viewPage model.tasks model.currentPage model.tasksPerPage ]
+                    ]
+                , column [ width (fillPortion 1) ] []
+                ]
+            )
         ]
+    }
 
 
-viewTaskList : Model -> Html Msg
-viewTaskList model =
-    ul [] (List.range 0 (tasksPerPage - 1) |> List.map (viewTask model))
-
-
-viewTask : Model -> Int -> Html Msg
-viewTask model index =
+viewPage : Array Task -> Int -> Int -> Element Msg
+viewPage tasks currentPage tasksPerPage =
     let
-        maybeTask =
-            Array.get index model.items
+        offset =
+            currentPage * tasksPerPage
+    in
+    column [ spacing 8 ]
+        (List.range 0 (tasksPerPage - 1)
+            |> List.map (\index -> viewTask (Array.get (offset + index) tasks) index)
+        )
 
-        done =
-            case maybeTask of
+
+viewTask : Maybe Task -> Int -> Element Msg
+viewTask maybe_task index =
+    let
+        ( checked, label ) =
+            case maybe_task of
                 Just task ->
-                    task.done
+                    ( task.done, task.name )
 
                 Nothing ->
-                    False
-
-        finishable =
-            maybeTask /= Nothing
+                    ( False, " " )
     in
-    li
-        []
-        [ div []
-            [ input
-                [ type_ "checkbox"
-                , checked done
-                , disabled (not finishable)
-                , onCheck (TaskUpdateDone index)
-                ]
-                []
-            , Maybe.map viewTaskText maybeTask |> Maybe.withDefault (text "")
-            ]
-        ]
+    Input.checkbox []
+        { onChange = SetTaskDone index
+        , icon = Input.defaultCheckbox
+        , checked = checked
+        , label = Input.labelRight [] (text label)
+        }
 
 
-viewTaskText : Task -> Html Msg
-viewTaskText task =
-    text task.name
+black : Color
+black =
+    rgb255 0 0 0
+
+
+customButton : { onPress : Maybe msg, label : Element msg } -> Element msg
+customButton properties =
+    Input.button
+        [ padding 8, Border.rounded 8, Border.glow black 0.5 ]
+        properties
+
+
+pageButton : String -> Element Msg
+pageButton label =
+    customButton
+        { label = text label
+        , onPress = Nothing
+        }

@@ -81,6 +81,7 @@ type Msg
     = AddTask
     | SetTaskDone Int Bool
     | UpdateNewTask String
+    | SetCurrentPage Int
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -89,7 +90,7 @@ update msg model =
         newModel =
             case msg of
                 AddTask ->
-                    case model.newTask of
+                    case String.trim model.newTask of
                         "" ->
                             model
 
@@ -106,81 +107,15 @@ update msg model =
 
                 UpdateNewTask text ->
                     { model | newTask = text }
+
+                SetCurrentPage pageNum ->
+                    { model | currentPage = pageNum }
     in
     ( newModel, Cmd.none )
 
 
 
 -- View
-{-
-   tasksPerPage : Int
-   tasksPerPage =
-       5
-
-
-   view : Model -> Html Msg
-   view model =
-       div [ style "width" "600px", style "margin" "auto" ]
-           [ h2 [] [ text "Hello!" ]
-           , div []
-               [ button [ disabled True ] [ text "Prev" ]
-               , button [ disabled True ] [ text "Next" ]
-               ]
-           , br [] []
-           , div []
-               [ label [ for "new-task-field" ] [ text "New task:" ]
-               , br [] []
-               , input [ id "new-task-field", onInput UpdateNewTask ] []
-               , button [ onClick (Add model.newTask) ] [ text "Add" ]
-               ]
-           , div
-               []
-               [ viewTaskList model ]
-           ]
-
-
-   viewTaskList : Model -> Html Msg
-   viewTaskList model =
-       ul [] (List.range 0 (tasksPerPage - 1) |> List.map (viewTask model))
-
-
-   viewTask : Model -> Int -> Html Msg
-   viewTask model index =
-       let
-           maybeTask =
-               Array.get index model.items
-
-           done =
-               case maybeTask of
-                   Just task ->
-                       task.done
-
-                   Nothing ->
-                       False
-
-           finishable =
-               maybeTask /= Nothing
-       in
-       li
-           []
-           [ div []
-               [ input
-                   [ type_ "checkbox"
-                   , checked done
-                   , disabled (not finishable)
-                   , onCheck (TaskUpdateDone index)
-                   ]
-                   []
-               , Maybe.map viewTaskText maybeTask |> Maybe.withDefault (text "")
-               ]
-           ]
-
-
-   viewTaskText : Task -> Html Msg
-   viewTaskText task =
-       text task.name
-
--}
 
 
 view : Model -> Browser.Document Msg
@@ -191,30 +126,35 @@ view model =
             (row [ width fill ]
                 [ column [ width (fillPortion 1) ] []
                 , column [ padding 32, width (fillPortion 2), spacing 32 ]
-                    [ el [ centerX, Font.size 32 ] (text "Autofocus App")
-                    , row [ width fill, spaceEvenly ]
-                        [ pageButton "Prev"
-                        , row [ width (px 400), spacing 16 ]
-                            [ Input.text []
-                                { onChange = UpdateNewTask
-                                , text = model.newTask
-                                , placeholder = Just (Input.placeholder [] (text "New task"))
-                                , label = Input.labelHidden "New task"
-                                }
-                            , customButton
-                                { label = text "Add"
-                                , onPress = Just AddTask
-                                }
-                            ]
-                        , pageButton "Next"
-                        ]
-                    , row [ width fill ] [ viewPage model.tasks model.currentPage model.tasksPerPage ]
-                    ]
+                    (viewContent model)
                 , column [ width (fillPortion 1) ] []
                 ]
             )
         ]
     }
+
+
+viewContent : Model -> List (Element Msg)
+viewContent model =
+    [ el [ centerX, Font.size 32 ] (text "Autofocus App")
+    , row [ width fill, spaceEvenly ]
+        [ pageButton "Prev" model (model.currentPage - 1)
+        , row [ width (px 400), spacing 16 ]
+            [ Input.text []
+                { onChange = UpdateNewTask
+                , text = model.newTask
+                , placeholder = Just (Input.placeholder [] (text "New task"))
+                , label = Input.labelHidden "New task"
+                }
+            , customButton []
+                { label = text "Add"
+                , onPress = Just AddTask
+                }
+            ]
+        , pageButton "Next" model (model.currentPage + 1)
+        ]
+    , row [ width fill ] [ viewPage model.tasks model.currentPage model.tasksPerPage ]
+    ]
 
 
 viewPage : Array Task -> Int -> Int -> Element Msg
@@ -255,19 +195,53 @@ viewTask maybe_task index =
         }
 
 
-customButton : { onPress : Maybe msg, label : Element msg } -> Element msg
-customButton properties =
+customButton : List (Attribute msg) -> { onPress : Maybe msg, label : Element msg } -> Element msg
+customButton attributes properties =
     Input.button
-        [ padding 8, Border.rounded 8, Border.glow black 0.5 ]
+        (List.concat
+            [ [ padding 8, Border.rounded 8, Border.glow grey 0.5 ]
+            , attributes
+            ]
+        )
         properties
 
 
-pageButton : String -> Element Msg
-pageButton label =
-    customButton
+pageButton : String -> Model -> Int -> Element Msg
+pageButton label model pageNum =
+    let
+        validPageNum =
+            isPageNumberValid model pageNum
+
+        onPress =
+            if validPageNum then
+                Just (SetCurrentPage pageNum)
+
+            else
+                Nothing
+
+        buttonAttrs =
+            if validPageNum then
+                []
+
+            else
+                [ Font.color lightGrey ]
+    in
+    customButton buttonAttrs
         { label = text label
-        , onPress = Nothing
+        , onPress = onPress
         }
+
+
+isPageNumberValid : Model -> Int -> Bool
+isPageNumberValid model pageNum =
+    let
+        numberOfTasks =
+            Array.length model.tasks
+
+        numberOfPages =
+            ceiling (toFloat numberOfTasks / toFloat model.tasksPerPage)
+    in
+    0 <= pageNum && pageNum < numberOfPages
 
 
 

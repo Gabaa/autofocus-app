@@ -89,7 +89,12 @@ update msg model =
         newModel =
             case msg of
                 AddTask ->
-                    { model | tasks = Array.push (newTask model.newTask) model.tasks, newTask = "" }
+                    case model.newTask of
+                        "" ->
+                            model
+
+                        _ ->
+                            { model | tasks = Array.push (newTask model.newTask) model.tasks, newTask = "" }
 
                 SetTaskDone index done ->
                     case Array.get index model.tasks of
@@ -203,7 +208,7 @@ view model =
                             ]
                         , pageButton "Next"
                         ]
-                    , row [] [ viewPage model.tasks model.currentPage model.tasksPerPage ]
+                    , row [ width fill ] [ viewPage model.tasks model.currentPage model.tasksPerPage ]
                     ]
                 , column [ width (fillPortion 1) ] []
                 ]
@@ -218,7 +223,7 @@ viewPage tasks currentPage tasksPerPage =
         offset =
             currentPage * tasksPerPage
     in
-    column [ spacing 8 ]
+    column [ width fill, spacing 8 ]
         (List.range 0 (tasksPerPage - 1)
             |> List.map (\index -> viewTask (Array.get (offset + index) tasks) index)
         )
@@ -234,18 +239,20 @@ viewTask maybe_task index =
 
                 Nothing ->
                     ( False, " " )
+
+        textColor =
+            if checked then
+                lightGrey
+
+            else
+                black
     in
-    Input.checkbox []
+    Input.checkbox [ padding 8, Border.rounded 8, Border.glow grey 0.5 ]
         { onChange = SetTaskDone index
         , icon = Input.defaultCheckbox
         , checked = checked
-        , label = Input.labelRight [] (text label)
+        , label = Input.labelRight [] (el [ Font.color textColor ] (text label))
         }
-
-
-black : Color
-black =
-    rgb255 0 0 0
 
 
 customButton : { onPress : Maybe msg, label : Element msg } -> Element msg
@@ -261,3 +268,22 @@ pageButton label =
         { label = text label
         , onPress = Nothing
         }
+
+
+
+-- Colors
+
+
+black : Color
+black =
+    rgb255 0 0 0
+
+
+grey : Color
+grey =
+    rgb255 127 127 127
+
+
+lightGrey : Color
+lightGrey =
+    rgb255 191 191 191

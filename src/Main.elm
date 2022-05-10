@@ -204,7 +204,7 @@ viewTask maybe_task index =
             else
                 black
     in
-    Input.checkbox [ padding 8, Border.rounded 8, Border.glow grey 0.5 ]
+    Input.checkbox [ padding 8, Border.rounded 8, Border.glow grey 0.5, spacing 8 ]
         { onChange = SetTaskDone index
         , icon = Input.defaultCheckbox
         , checked = checked

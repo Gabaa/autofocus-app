@@ -125,8 +125,7 @@ view model =
         [ layout []
             (row [ width fill ]
                 [ column [ width (fillPortion 1) ] []
-                , column [ padding 32, width (fillPortion 2), spacing 32 ]
-                    (viewContent model)
+                , column [ padding 32, width (fillPortion 2), spacing 32 ] (viewContent model)
                 , column [ width (fillPortion 1) ] []
                 ]
             )
@@ -136,7 +135,7 @@ view model =
 
 viewContent : Model -> List (Element Msg)
 viewContent model =
-    [ el [ centerX, Font.size 32 ] (text "Autofocus App")
+    [ viewHeader
     , row [ width fill, spaceEvenly ]
         [ pageButton "Prev" model (model.currentPage - 1)
         , row [ width (px 400), spacing 16 ]
@@ -155,6 +154,24 @@ viewContent model =
         ]
     , row [ width fill ] [ viewPage model.tasks model.currentPage model.tasksPerPage ]
     ]
+
+
+viewHeader : Element Msg
+viewHeader =
+    let
+        settingsButton =
+            customButton []
+                { onPress = Nothing
+                , label = text "Settings"
+                }
+    in
+    row [ width fill ]
+        [ el [ width fill ] none
+        , el [ centerX, Font.size 32 ] (text "Autofocus App")
+
+        {- Use this weird nesting to ensure that header element (above) is positioned exactly in the middle -}
+        , el [ width fill ] (el [ alignRight ] settingsButton)
+        ]
 
 
 viewPage : Array Task -> Int -> Int -> Element Msg

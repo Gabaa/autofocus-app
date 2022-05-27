@@ -96,6 +96,7 @@ type Msg
     | UpdateNewTask String
     | SetCurrentPage Int
     | ToggleSettingsOpen
+    | UpdateSettings Settings
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -127,6 +128,9 @@ update msg model =
 
                 ToggleSettingsOpen ->
                     { model | isSettingsOpen = not model.isSettingsOpen }
+
+                UpdateSettings newSettings ->
+                    { model | settings = newSettings }
     in
     ( newModel, Cmd.none )
 
@@ -171,11 +175,28 @@ viewHeader =
 viewContent : Model -> List (Element Msg)
 viewContent model =
     if model.isSettingsOpen then
-        []
+        [ viewSettingsPage model.settings
+        ]
 
     else
         [ viewPageControlRow model
         , viewPage model.tasks model.currentPage model.tasksPerPage
+        ]
+
+
+viewSettingsPage : Settings -> Element Msg
+viewSettingsPage settings =
+    let
+        checked =
+            settings.placeholderBool
+    in
+    row []
+        [ Input.checkbox []
+            { onChange = \value -> UpdateSettings { settings | placeholderBool = value }
+            , icon = Input.defaultCheckbox
+            , checked = checked
+            , label = Input.labelLeft [] (text "Placeholder Bool")
+            }
         ]
 
 

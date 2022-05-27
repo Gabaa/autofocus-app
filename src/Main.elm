@@ -35,33 +35,46 @@ type alias Model =
     , currentPage : Int
     , tasksPerPage : Int
     , newTask : String
+    , isSettingsOpen : Bool
+    , settings : Settings
     }
-
-
-type alias Task =
-    { name : String, done : Bool }
-
-
-newTask : String -> Task
-newTask name =
-    { name = name, done = False }
 
 
 init : Flags -> ( Model, Cmd Msg )
 init _ =
     ( { tasks =
             Array.fromList
-                [ newTask "Brush teeth"
-                , newTask "Comb hair"
-                , newTask "Take a shower"
-                , newTask "Eat a grape"
+                [ initTask "Brush teeth"
+                , initTask "Comb hair"
+                , initTask "Take a shower"
+                , initTask "Eat a grape"
                 ]
       , currentPage = 0
       , tasksPerPage = 10
       , newTask = ""
+      , isSettingsOpen = False
+      , settings = initSettings
       }
     , Cmd.none
     )
+
+
+type alias Task =
+    { name : String, done : Bool }
+
+
+initTask : String -> Task
+initTask name =
+    { name = name, done = False }
+
+
+type alias Settings =
+    { placeholderBool : Bool }
+
+
+initSettings : Settings
+initSettings =
+    { placeholderBool = True }
 
 
 
@@ -82,6 +95,7 @@ type Msg
     | SetTaskDone Int Bool
     | UpdateNewTask String
     | SetCurrentPage Int
+    | ToggleSettingsOpen
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -95,7 +109,7 @@ update msg model =
                             model
 
                         _ ->
-                            { model | tasks = Array.push (newTask model.newTask) model.tasks, newTask = "" }
+                            { model | tasks = Array.push (initTask model.newTask) model.tasks, newTask = "" }
 
                 SetTaskDone index done ->
                     case Array.get index model.tasks of
@@ -110,6 +124,9 @@ update msg model =
 
                 SetCurrentPage pageNum ->
                     { model | currentPage = pageNum }
+
+                ToggleSettingsOpen ->
+                    { model | isSettingsOpen = not model.isSettingsOpen }
     in
     ( newModel, Cmd.none )
 
@@ -125,7 +142,7 @@ view model =
         [ layout []
             (row [ width fill ]
                 [ column [ width (fillPortion 1) ] []
-                , column [ padding 32, width (fillPortion 2), spacing 32 ] (viewContent model)
+                , column [ padding 32, width (fillPortion 2), spacing 32 ] (viewHeader :: viewContent model)
                 , column [ width (fillPortion 1) ] []
                 ]
             )
@@ -133,10 +150,38 @@ view model =
     }
 
 
+viewHeader : Element Msg
+viewHeader =
+    let
+        settingsButton =
+            customButton []
+                { onPress = Just ToggleSettingsOpen
+                , label = text "Settings"
+                }
+    in
+    row [ width fill ]
+        [ el [ width fill ] none
+        , el [ centerX, Font.size 32 ] (text "Autofocus App")
+
+        {- Use this weird nesting to ensure that header element (above) is positioned exactly in the middle -}
+        , el [ width fill ] (el [ alignRight ] settingsButton)
+        ]
+
+
 viewContent : Model -> List (Element Msg)
 viewContent model =
-    [ viewHeader
-    , row [ width fill, spaceEvenly ]
+    if model.isSettingsOpen then
+        []
+
+    else
+        [ viewPageControlRow model
+        , viewPage model.tasks model.currentPage model.tasksPerPage
+        ]
+
+
+viewPageControlRow : Model -> Element Msg
+viewPageControlRow model =
+    row [ width fill, spaceEvenly ]
         [ pageButton "Prev" model (model.currentPage - 1)
         , row [ width (px 400), spacing 16 ]
             [ Input.text []
@@ -152,26 +197,6 @@ viewContent model =
             ]
         , pageButton "Next" model (model.currentPage + 1)
         ]
-    , row [ width fill ] [ viewPage model.tasks model.currentPage model.tasksPerPage ]
-    ]
-
-
-viewHeader : Element Msg
-viewHeader =
-    let
-        settingsButton =
-            customButton []
-                { onPress = Nothing
-                , label = text "Settings"
-                }
-    in
-    row [ width fill ]
-        [ el [ width fill ] none
-        , el [ centerX, Font.size 32 ] (text "Autofocus App")
-
-        {- Use this weird nesting to ensure that header element (above) is positioned exactly in the middle -}
-        , el [ width fill ] (el [ alignRight ] settingsButton)
-        ]
 
 
 viewPage : Array Task -> Int -> Int -> Element Msg
@@ -180,9 +205,11 @@ viewPage tasks currentPage tasksPerPage =
         offset =
             currentPage * tasksPerPage
     in
-    column [ width fill, spacing 8 ]
-        (List.range 0 (tasksPerPage - 1)
-            |> List.map (\index -> viewTask (Array.get (offset + index) tasks) index)
+    el [ width fill ]
+        (column [ width fill, spacing 8 ]
+            (List.range 0 (tasksPerPage - 1)
+                |> List.map (\index -> viewTask (Array.get (offset + index) tasks) index)
+            )
         )
 
 
